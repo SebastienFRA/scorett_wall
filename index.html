@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>ScoreTT – Mur des scores</title>
+<style>
+    body {
+        margin: 0;
+        background: #111;
+        font-family: Arial, sans-serif;
+        color: white;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+        padding: 16px;
+    }
+
+    .match {
+        background: #1e1e1e;
+        border-radius: 12px;
+        padding: 16px;
+        border: 2px solid #333;
+        cursor: pointer;
+        height: 300px; /* un peu plus haut */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .title {
+        font-size: 20px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 12px;
+    }
+
+    .players {
+        display: flex;
+        justify-content: space-between;
+        flex: 1;
+        align-items: center;
+    }
+
+    .player {
+        width: 48%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .name {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 12px;
+        text-align: center;
+    }
+
+    .score {
+        font-size: 64px;
+        font-weight: bold;
+    }
+
+    .sets {
+        text-align: center;
+        margin-top: 8px;
+        font-size: 32px;
+        opacity: 0.8;
+    }
+
+    .offline {
+        opacity: 0.4;
+    }
+</style>
+</head>
+<body>
+
+<div class="grid" id="grid"></div>
+
+<script>
+const MAX_TABLES = 6;
+
+let matches = [
+    { label: "Table 1", ip: "" },
+    { label: "Table 2", ip: "" },
+    { label: "Table 3", ip: "" },
+    { label: "Table 4", ip: "" },
+    { label: "Table 5", ip: "" },
+    { label: "Table 6", ip: "" }
+];
+
+const grid = document.getElementById("grid");
+
+// Fonction pour créer chaque tuile
+function createMatchTile(match) {
+    const div = document.createElement("div");
+    div.className = "match offline";
+    div.innerHTML = `
+        <div class="title">${match.label}</div>
+        <div class="players">
+            <div class="player">
+                <div class="name" id="${match.label}-p1">---</div>
+                <div class="score" id="${match.label}-s1">0</div>
+            </div>
+            <div class="player">
+                <div class="name" id="${match.label}-p2">---</div>
+                <div class="score" id="${match.label}-s2">0</div>
+            </div>
+        </div>
+        <div class="sets" id="${match.label}-sets"></div>
+    `;
+    
+    // Clique pour renseigner ou changer l'IP
+    div.addEventListener("click", () => {
+        const ip = prompt("Entrez l'adresse IP de la table:", match.ip);
+        if (ip !== null) {
+            match.ip = ip;
+            connect(match, div);
+        }
+    });
+
+    grid.appendChild(div);
+    if (match.ip) connect(match, div);
+}
+
+// Connexion WebSocket
+function connect(match, container) {
+    if (!match.ip) return;
+
+    const ws = new WebSocket(`ws://${match.ip}:8080/score`);
+
+    ws.onopen = () => {
+        container.classList.remove("offline");
+    };
+
+    ws.onclose = () => {
+        container.classList.add("offline");
+    };
+
+    ws.onmessage = event => {
+        const d = JSON.parse(event.data);
+
+        const homeColor = "green";
+        const awayColor = "red";
+
+        const p1Elem = document.getElementById(`${match.label}-p1`);
+        const p2Elem = document.getElementById(`${match.label}-p2`);
+        const s1Elem = document.getElementById(`${match.label}-s1`);
+        const s2Elem = document.getElementById(`${match.label}-s2`);
+        const setsElem = document.getElementById(`${match.label}-sets`);
+
+        if (p1Elem && p2Elem && s1Elem && s2Elem && setsElem) {
+            p1Elem.textContent = d.player1Name;
+            p2Elem.textContent = d.player2Name;
+            s1Elem.textContent = d.player1Score;
+            s2Elem.textContent = d.player2Score;
+
+            // Couleur selon domicile/extérieur
+            p1Elem.style.color = d.homePlayerId === 1 ? homeColor : awayColor;
+            s1Elem.style.color = d.homePlayerId === 1 ? homeColor : awayColor;
+
+            p2Elem.style.color = d.homePlayerId === 2 ? homeColor : awayColor;
+            s2Elem.style.color = d.homePlayerId === 2 ? homeColor : awayColor;
+
+            setsElem.textContent = `${d.player1SetScore} – ${d.player2SetScore}`;
+        }
+    };
+}
+
+// Création des tuiles
+matches.slice(0, MAX_TABLES).forEach(createMatchTile);
+</script>
+
+</body>
+</html>
