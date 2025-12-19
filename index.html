@@ -24,17 +24,25 @@
         padding: 16px;
         border: 2px solid #333;
         cursor: pointer;
-        height: 300px; /* un peu plus haut */
+        height: 300px;
         display: flex;
         flex-direction: column;
         justify-content: center;
+        position: relative; 
     }
 
     .title {
-        font-size: 20px;
+        font-size: 30px;
         font-weight: bold;
         text-align: center;
         margin-bottom: 12px;
+        padding: 4px;
+        border-radius: 4px;
+        z-index: 10;
+    }
+
+    .title:hover {
+        background: #333;
     }
 
     .players {
@@ -52,22 +60,32 @@
     }
 
     .name {
-        font-size: 24px;
+        font-size: 40px;
         font-weight: bold;
-        margin-bottom: 12px;
+        margin-bottom: 8px;
         text-align: center;
+        text-transform: uppercase; /* Majuscules */
+        
+        /* SOLUTION POUR REMONTER SANS BOUGER LE SCORE */
+        position: relative;
+        top: -40px; /* Ajustez cette valeur pour monter plus ou moins */
     }
 
     .score {
-        font-size: 64px;
+        font-size: 130px; 
         font-weight: bold;
+        line-height: 1;
     }
 
     .sets {
-        text-align: center;
-        margin-top: 8px;
-        font-size: 32px;
-        opacity: 0.8;
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        top: 135px; 
+        font-size: 60px; 
+        font-weight: bold;
+        opacity: 0.9;
+        white-space: nowrap;
     }
 
     .offline {
@@ -93,7 +111,6 @@ let matches = [
 
 const grid = document.getElementById("grid");
 
-// Fonction pour créer chaque tuile
 function createMatchTile(match) {
     const div = document.createElement("div");
     div.className = "match offline";
@@ -112,9 +129,19 @@ function createMatchTile(match) {
         <div class="sets" id="${match.label}-sets"></div>
     `;
     
-    // Clique pour renseigner ou changer l'IP
+    const titleElem = div.querySelector(".title");
+
+    titleElem.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const newName = prompt("Nouveau nom pour cette table :", match.label);
+        if (newName !== null && newName.trim() !== "") {
+            match.label = newName;
+            titleElem.textContent = newName;
+        }
+    });
+
     div.addEventListener("click", () => {
-        const ip = prompt("Entrez l'adresse IP de la table:", match.ip);
+        const ip = prompt(`Entrez l'adresse IP pour ${match.label}:`, match.ip);
         if (ip !== null) {
             match.ip = ip;
             connect(match, div);
@@ -125,23 +152,13 @@ function createMatchTile(match) {
     if (match.ip) connect(match, div);
 }
 
-// Connexion WebSocket
 function connect(match, container) {
     if (!match.ip) return;
-
     const ws = new WebSocket(`ws://${match.ip}:8080/score`);
-
-    ws.onopen = () => {
-        container.classList.remove("offline");
-    };
-
-    ws.onclose = () => {
-        container.classList.add("offline");
-    };
-
+    ws.onopen = () => container.classList.remove("offline");
+    ws.onclose = () => container.classList.add("offline");
     ws.onmessage = event => {
         const d = JSON.parse(event.data);
-
         const homeColor = "green";
         const awayColor = "red";
 
@@ -157,10 +174,8 @@ function connect(match, container) {
             s1Elem.textContent = d.player1Score;
             s2Elem.textContent = d.player2Score;
 
-            // Couleur selon domicile/extérieur
             p1Elem.style.color = d.homePlayerId === 1 ? homeColor : awayColor;
             s1Elem.style.color = d.homePlayerId === 1 ? homeColor : awayColor;
-
             p2Elem.style.color = d.homePlayerId === 2 ? homeColor : awayColor;
             s2Elem.style.color = d.homePlayerId === 2 ? homeColor : awayColor;
 
@@ -169,7 +184,6 @@ function connect(match, container) {
     };
 }
 
-// Création des tuiles
 matches.slice(0, MAX_TABLES).forEach(createMatchTile);
 </script>
 
